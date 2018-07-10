@@ -13,7 +13,6 @@
 #include <iostream>
 #include <stdio.h>
 #include <Lmcons.h>
-#include "atlstr.h"
 
 using namespace std;
 

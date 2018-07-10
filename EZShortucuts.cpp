@@ -18,29 +18,29 @@ VK_OEM_PERIOD, //>
 
 const wstring emoticons[] = { L"( ͡° ͜ʖ ͡°)", L"ಠ_ಠ", L"ヽ༼ ಠ益ಠ ༽ﾉ", L"©", L"╰( ͡° ͜ʖ ͡° )つ──☆*:・ﾟ", L"(　＾∇＾)", L"(̿▀̿ ̿Ĺ̯̿̿▀̿ ̿)̄", L"(╥_╥)", L"눈_눈",L"(`･ω･´)" };
 
-void SendKeystrokes(const wstring text)
+void SendKeystrokes(const wstring &text)
 {
 	UINT i, characterCount, keystrokesToSend, keystrokesSent;
 
-	characterCount = _tcslen(text.c_str());
+	characterCount = static_cast<UINT>(_tcslen(reinterpret_cast<const char *>(text.c_str())));
 	keystrokesToSend = characterCount * 2;
-	INPUT * keystroke = new INPUT[keystrokesToSend];
+    auto * keystroke = new INPUT[keystrokesToSend];
 
 	for (i = 0; i < characterCount&&i < 84; ++i)
 	{
 		keystroke[i * 2].type = INPUT_KEYBOARD;
 		keystroke[i * 2].ki.wVk = 0;
-		keystroke[i * 2].ki.wScan = text[i];
+		keystroke[i * 2].ki.wScan = (WORD) text[i];
 		keystroke[i * 2].ki.dwFlags = KEYEVENTF_UNICODE;
 		keystroke[i * 2].ki.time = 0;
-		keystroke[i * 2].ki.dwExtraInfo = GetMessageExtraInfo();
+		keystroke[i * 2].ki.dwExtraInfo = static_cast<ULONG_PTR>(GetMessageExtraInfo());
 
 		keystroke[i * 2 + 1].type = INPUT_KEYBOARD;
 		keystroke[i * 2 + 1].ki.wVk = 0;
-		keystroke[i * 2 + 1].ki.wScan = text[i];
+		keystroke[i * 2 + 1].ki.wScan = (WORD) text[i];
 		keystroke[i * 2 + 1].ki.dwFlags = KEYEVENTF_UNICODE | KEYEVENTF_KEYUP;
 		keystroke[i * 2 + 1].ki.time = 0;
-		keystroke[i * 2 + 1].ki.dwExtraInfo = GetMessageExtraInfo();
+		keystroke[i * 2 + 1].ki.dwExtraInfo = static_cast<ULONG_PTR>(GetMessageExtraInfo());
 	}
 
 	keystrokesSent = SendInput((UINT)keystrokesToSend, keystroke, sizeof(*keystroke));
@@ -49,7 +49,7 @@ void SendKeystrokes(const wstring text)
 
 wstring s2ws(const string& str)
 {
-	int size_needed = MultiByteToWideChar(CP_UTF8, 0, &str[0], (int)str.size(), NULL, 0);
+	int size_needed = MultiByteToWideChar(CP_UTF8, 0, &str[0], (int)str.size(), nullptr, 0);
 	wstring wstrTo(size_needed, 0);
 	MultiByteToWideChar(CP_UTF8, 0, &str[0], (int)str.size(), &wstrTo[0], size_needed);
 	return wstrTo;
@@ -58,13 +58,15 @@ wstring s2ws(const string& str)
 void gotoStartup(wstring Path) {
 
 	HKEY hkey = NULL;
-	LONG createStatus = RegCreateKey(HKEY_CURRENT_USER, L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", &hkey);
-	LONG status = RegSetValueEx(hkey, L"EZShortcuts", 0, REG_SZ, (BYTE *)Path.c_str(), (Path.size() + 1) * sizeof(wchar_t));
+	LONG createStatus = RegCreateKey(HKEY_CURRENT_USER,
+                                     reinterpret_cast<LPCSTR>(L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"), &hkey);
+	LONG status = RegSetValueEx(hkey, reinterpret_cast<LPCSTR>(L"EZShortcuts"), 0, REG_SZ, (BYTE *)Path.c_str(),
+                                static_cast<DWORD>((Path.size() + 1) * sizeof(wchar_t)));
 }
 
 void checkKeys() {
 	for (int i = 0; i < sizeof(keys); i++) {
-		if (GetAsyncKeyState(keys[i])) {
+		if (GetAsyncKeyState(keys[i]) & 0x8000) {
 			SendKeystrokes(emoticons[i]);
 			return;
 		}
@@ -72,15 +74,18 @@ void checkKeys() {
 	}
 }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-noreturn"
 int main(int argc, char** argv)
 {
 	gotoStartup(s2ws(argv[0]));
 	::ShowWindow(::GetConsoleWindow(), SW_HIDE);
 	while (true) {
-		if (GetAsyncKeyState(0x12) && GetAsyncKeyState(VK_CONTROL))//ctrl+alt
+		if (GetAsyncKeyState(VK_MENU) & 0x8000 && GetAsyncKeyState(VK_CONTROL) & 0x8000)//ctrl+alt
 			checkKeys();
-		Sleep(200);
+		Sleep(300);
 	}
 	return 0;
 }
+#pragma clang diagnostic pop
 
